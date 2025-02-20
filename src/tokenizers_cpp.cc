@@ -36,6 +36,8 @@ tokenizers::EncodingBatch tokenizers::Tokenizer::EncodeBatch(const std::vector<s
 		res.encodings.emplace_back(Encode(texts[i], add_special_tokens));
 	}
 
+	res.update();
+
 	return res;
 }
 
@@ -89,7 +91,7 @@ inline std::vector<tokenizers::array_view<uint32_t>> u32tensorToView(const torch
 	{
 		auto&& sub = ids[i];
 		auto dataPtr = reinterpret_cast<uint32_t*>(sub.mutable_data_ptr());
-		tensor.emplace_back(dataPtr, dataPtr + sub.size(0));
+		tensor.emplace_back(dataPtr, sub.size(0));
 	}
 	return tensor;
 }
@@ -99,7 +101,10 @@ tokenizers::Decoding tokenizers::Tokenizer::Decode(const torch::Tensor& ids, boo
 	if (ids.dtype() == torch::kUInt32 && ids.is_cpu())
 		return Decode(u32tensorToView(ids)[0], skip_special_token);
 	else
-		return Decode(tensorTo2DVec(ids)[0], skip_special_token);
+	{
+		auto ids_new = ids.to(global::CPU, torch::kUInt32);
+		return Decode(u32tensorToView(ids_new)[0], skip_special_token);
+	}
 }
 
 tokenizers::Decoding tokenizers::Tokenizer::Decode(const std::vector<uint32_t>& ids, bool skip_special_token)
@@ -112,7 +117,10 @@ tokenizers::DecodingBatch tokenizers::Tokenizer::DecodeBatch(const torch::Tensor
 	if (ids_batch.dtype() == torch::kUInt32 && ids_batch.is_cpu())
 		return DecodeBatch(u32tensorToView(ids_batch), skip_special_token);
 	else
-		return DecodeBatch(tensorTo2DVec(ids_batch), skip_special_token);
+	{
+		auto ids_batch_new = ids_batch.to(global::CPU, torch::kUInt32);
+		return DecodeBatch(u32tensorToView(ids_batch_new), skip_special_token);
+	}
 }
 
 tokenizers::DecodingBatch tokenizers::Tokenizer::DecodeBatch(

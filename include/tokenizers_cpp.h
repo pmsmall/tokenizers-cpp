@@ -123,14 +123,21 @@ namespace tokenizers
 			target = arr;
 		}
 
+		inline void update_max_len(const std::optional<array_view<uint32_t>>& arr)
+		{
+			auto& temp = arr.value();
+			if (temp.size() > max_len)
+				max_len = temp.size();
+		}
+
 		inline void update()
 		{
-			std::vector<array_view<uint32_t>> temp_ids;
-			temp_ids.reserve(encodings.size());
-			std::vector<array_view<uint32_t>> temp_attention_mask;
-			temp_attention_mask.reserve(encodings.size());
-			std::vector<array_view<uint32_t>> temp_type_ids;
-			temp_type_ids.reserve(encodings.size());
+			std::vector<array_view<uint32_t>> temp_ids, temp_attention_mask, temp_type_ids;
+			temp_ids.resize(encodings.size());
+			temp_attention_mask.resize(encodings.size());
+			temp_type_ids.resize(encodings.size());
+
+			bool has_ids = false, has_mask = false, has_tids = false;
 
 			max_len = 0;
 
@@ -139,32 +146,29 @@ namespace tokenizers
 				auto& e = encodings[i];
 				if (e.ids.has_value())
 				{
-					auto& temp = e.ids.value();
-					temp_ids.push_back(temp);
-					if (temp.size() > max_len)
-						max_len = temp.size();
+					has_ids = true;
+					update_max_len(e.ids);
+					temp_ids[i] = e.ids.value();
 				}
 				if (e.attention_mask.has_value())
 				{
-					auto& temp = e.attention_mask.value();
-					temp_attention_mask.push_back(temp);
-					if (temp.size() > max_len)
-						max_len = temp.size();
+					has_mask = true;
+					update_max_len(e.attention_mask);
+					temp_attention_mask[i] = e.attention_mask.value();
 				}
 				if (e.type_ids.has_value())
 				{
-					auto& temp = e.type_ids.value();
-					temp_type_ids.push_back(temp);
-					if (temp.size() > max_len)
-						max_len = temp.size();
+					has_tids = true;
+					update_max_len(e.type_ids);
+					temp_type_ids[i] = e.type_ids.value();
 				}
 			}
 
-			if (temp_ids.size())
+			if (has_ids)
 				update(temp_ids, ids);
-			if(temp_attention_mask.size())
+			if(has_mask)
 				update(temp_attention_mask, attention_mask);
-			if (temp_type_ids.size())
+			if (has_tids)
 				update(temp_type_ids, type_ids);
 		}
 
@@ -181,7 +185,7 @@ namespace tokenizers
 		{
 
 			auto tensor = torch::from_blob(const_cast<uint32_t*>(arr.data()),
-				{ static_cast<long long>(arr.size() / arr.size()), static_cast<long long>(max_len) },
+				{ static_cast<long long>(arr.size() / max_len), static_cast<long long>(max_len) },
 				options);
 			if (type != torch::kUInt32)
 				tensor = tensor.to(type);

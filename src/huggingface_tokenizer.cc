@@ -122,7 +122,7 @@ namespace tokenizers
 				result.encodings.emplace_back(BaseEncode{ .ids = encodings[i].ids, .type_ids = encodings[i].type_ids, .tokens = tokens, .special_tokens_mask = encodings[i].special_tokens_mask, .attention_mask = encodings[i].attention_mask });
 			}
 
-			result.updateOnce();
+			result.update();
 
 			return result;
 		}
