@@ -1,0 +1,44 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 21607e9..5ab9a38 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -142,6 +142,19 @@ join_paths(includedir_for_pc_file "\${prefix}" "${CMAKE_INSTALL_INCLUDEDIR}")
+ configure_file("${PROJECT_SOURCE_DIR}/config.h.in" "config.h")
+ configure_file("${PROJECT_SOURCE_DIR}/sentencepiece.pc.in" "sentencepiece.pc" @ONLY)
+ 
++set(LIBRARY_NAME sentencepiece)
++
++set(CONFIG_FILE_PATH share/${LIBRARY_NAME})
++
++include(GNUInstallDirs)
++include(CMakePackageConfigHelpers)
++
++configure_package_config_file(sentencepieceConfig.cmake.in
++        ${CMAKE_BINARY_DIR}/${LIBRARY_NAME}Config.cmake
++        INSTALL_DESTINATION ${CONFIG_FILE_PATH}
++        PATH_VARS CMAKE_INSTALL_INCLUDEDIR)
++
++
+ if (NOT MSVC)
+   # suppress warning for C++11 features.
+ #  add_definitions("-Wno-deprecated-declarations -Wno-deprecated-enum-enum-conversion")
+@@ -193,3 +206,19 @@ set(CPACK_PACKAGE_CONTACT "taku@google.com")
+ set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Taku Kudo")
+ set(CPACK_SOURCE_IGNORE_FILES "/build/;/.git/;/dist/;/sdist/;~$;${CPACK_SOURCE_IGNORE_FILES}")
+ include(CPack)
++
++write_basic_package_version_file(
++        ${CMAKE_CURRENT_BINARY_DIR}/${LIBRARY_NAME}ConfigVersion.cmake
++        VERSION ${CMAKE_PROJECT_VERSION}
++        COMPATIBILITY SameMajorVersion)
++
++install(TARGETS sentencepiece-static
++        EXPORT ${LIBRARY_NAME}Targets)
++
++install(EXPORT ${LIBRARY_NAME}Targets
++        DESTINATION ${CONFIG_FILE_PATH})
++
++install(FILES
++        ${CMAKE_BINARY_DIR}/${LIBRARY_NAME}Config.cmake
++        ${CMAKE_BINARY_DIR}/${LIBRARY_NAME}ConfigVersion.cmake
++        DESTINATION ${CONFIG_FILE_PATH})

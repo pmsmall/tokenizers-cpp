@@ -1,9 +1,15 @@
 cmake_minimum_required(VERSION 3.18)
 project(tokenizers_cpp C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+find_package(sentencepiece CONFIG REQUIRED)
+
+if(NOT Torch_FOUND)
+  find_package(Torch REQUIRED)
+endif()
 
 include(FetchContent)
 
@@ -86,7 +92,8 @@ get_filename_component(TOKENIZERS_CPP_ROOT ${CMAKE_CURRENT_LIST_FILE} DIRECTORY)
 set(TOKENIZERS_CPP_CARGO_SOURCE_PATH ${TOKENIZERS_CPP_ROOT}/rust)
 
 option(MSGPACK_USE_BOOST "Use Boost libraried" OFF)
-add_subdirectory(msgpack)
+find_package(msgpack-cxx CONFIG REQUIRED)
+# add_subdirectory(msgpack)
 
 option(MLC_ENABLE_SENTENCEPIECE_TOKENIZER "Enable SentencePiece tokenizer" ON)
 
@@ -117,15 +124,21 @@ set(
   src/sentencepiece_tokenizer.cc
   src/huggingface_tokenizer.cc
   src/rwkv_world_tokenizer.cc
+  src/tokenizers_rust.cc
+  src/tokenizers_cpp.cc
+  include/tokenizers_c.h
+  include/tokenizers_rust.h
+  include/tokenizers_cpp.h
 )
 add_library(tokenizer_cpp_objs OBJECT ${TOKENIZER_CPP_SRCS})
-target_include_directories(tokenizer_cpp_objs PRIVATE sentencepiece/src)
-target_include_directories(tokenizer_cpp_objs PRIVATE msgpack/include)
+# target_include_directories(tokenizer_cpp_objs PRIVATE sentencepiece/src)
+# target_include_directories(tokenizer_cpp_objs PRIVATE msgpack/include)
 target_include_directories(tokenizer_cpp_objs PUBLIC ${TOKENIZERS_CPP_INCLUDE})
+target_include_directories(tokenizer_cpp_objs PUBLIC ${TORCH_INCLUDE_DIRS})
 if (MLC_ENABLE_SENTENCEPIECE_TOKENIZER STREQUAL "ON")
   target_compile_definitions(tokenizer_cpp_objs PUBLIC MLC_ENABLE_SENTENCEPIECE_TOKENIZER)
 endif ()
-target_link_libraries(tokenizer_cpp_objs PRIVATE msgpack-cxx)
+target_link_libraries(tokenizer_cpp_objs PRIVATE msgpack-cxx ${TORCH_LIBRARIES})
 
 # sentencepiece config
 option(SPM_ENABLE_SHARED "override sentence piece config" OFF)
@@ -139,7 +152,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
           XCODE_ATTRIBUTE_${XCODE_PROPERTY} ${XCODE_VALUE})
   endmacro (set_xcode_property)
 endif()
-add_subdirectory(sentencepiece sentencepiece EXCLUDE_FROM_ALL)
+# add_subdirectory(sentencepiece sentencepiece EXCLUDE_FROM_ALL)
 
 add_library(tokenizers_c INTERFACE ${TOKENIZERS_RUST_LIB})
 target_link_libraries(tokenizers_c INTERFACE ${TOKENIZERS_RUST_LIB} ${TOKENIZERS_C_LINK_LIBS})
@@ -147,3 +160,23 @@ target_link_libraries(tokenizers_c INTERFACE ${TOKENIZERS_RUST_LIB} ${TOKENIZERS
 add_library(tokenizers_cpp STATIC $<TARGET_OBJECTS:tokenizer_cpp_objs>)
 target_link_libraries(tokenizers_cpp PRIVATE tokenizers_c sentencepiece-static ${TOKENIZERS_CPP_LINK_LIBS})
 target_include_directories(tokenizers_cpp PUBLIC ${TOKENIZERS_CPP_INCLUDE})
+
+set(
+  TEST_TOKENIZER_C_SRCS
+  src/tokenizers_rust.cc
+  src/test_tokenizers_c.cc
+)
+
+add_executable(test_tokenizers_c ${TEST_TOKENIZER_C_SRCS})
+target_link_libraries(test_tokenizers_c PRIVATE ${TOKENIZERS_RUST_LIB} tokenizers_c ${TORCH_LIBRARIES})
+target_include_directories(test_tokenizers_c PUBLIC ${TOKENIZERS_CPP_INCLUDE} ${TORCH_INCLUDE_DIRS})
+
+set(
+  TEST_TOKENIZER_RUST_SRCS
+  src/tokenizers_rust.cc
+  src/test_tokenizers_rust.cc
+)
+
+add_executable(test_tokenizers_rust ${TEST_TOKENIZER_RUST_SRCS})
+target_link_libraries(test_tokenizers_rust PRIVATE ${TOKENIZERS_RUST_LIB} tokenizers_c ${TORCH_LIBRARIES})
+target_include_directories(test_tokenizers_rust PUBLIC ${TOKENIZERS_CPP_INCLUDE} ${TORCH_INCLUDE_DIRS})

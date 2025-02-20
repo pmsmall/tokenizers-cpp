@@ -1,0 +1,80 @@
+diff --git a/src/sentencepiece_processor.cc b/src/sentencepiece_processor.cc
+index 5d2c857..f00a314 100644
+--- a/src/sentencepiece_processor.cc
++++ b/src/sentencepiece_processor.cc
+@@ -430,6 +430,17 @@ util::Status SentencePieceProcessor::Decode(const std::vector<int> &ids,
+   return util::OkStatus();
+ }
+ 
++util::Status SentencePieceProcessor::Decode(std::basic_string_view<int> ids,
++                                            std::string *detokenized) const {
++  CHECK_OR_RETURN_STATUS_STL(detokenized);
++
++  SentencePieceText spt;
++  RETURN_IF_ERROR(Decode(ids, &spt));
++  *detokenized = std::move(*spt.mutable_text());
++
++  return util::OkStatus();
++}
++
+ util::Status SentencePieceProcessor::NBestEncode(
+     absl::string_view input, int nbest_size,
+     std::vector<std::vector<std::string>> *pieces) const {
+@@ -924,6 +935,21 @@ util::Status SentencePieceProcessor::Decode(const std::vector<int> &ids,
+   return Decode(pieces, spt);
+ }
+ 
++util::Status SentencePieceProcessor::Decode(std::basic_string_view<int> ids,
++                                            SentencePieceText *spt) const {
++  std::vector<std::string> pieces;
++  const int num_pieces = GetPieceSize();
++  pieces.reserve(ids.size());
++  for (const int id : ids) {
++    if (id < 0 || id >= num_pieces) {
++      return util::Status(util::StatusCode::kOutOfRange,
++                          absl::StrCat("Invalid id: ", id));
++    }
++    pieces.emplace_back(IdToPiece(id));
++  }
++  return Decode(pieces, spt);
++}
++
+ #define CHECK_STATUS_OR_RETURN_DEFAULT(value)                                \
+   if (!status().ok()) {                                                      \
+     LOG(ERROR) << status().message() << "\nReturns default value " << value; \
+diff --git a/src/sentencepiece_processor.h b/src/sentencepiece_processor.h
+index dd3f092..d3c2354 100644
+--- a/src/sentencepiece_processor.h
++++ b/src/sentencepiece_processor.h
+@@ -311,6 +311,10 @@ class SentencePieceProcessor {
+   virtual util::Status Decode(const std::vector<int> &ids,
+                               std::string *detokenized) const;
+ 
++  // Given a sequence of ids, decodes it into a detokenized output.
++  virtual util::Status Decode(std::basic_string_view<int> ids,
++                              std::string *detokenized) const;
++
+   //////////////////////////////////////////////////////////////
+   // NBest API.
+   //
+@@ -420,6 +424,9 @@ class SentencePieceProcessor {
+ 
+   virtual util::Status Decode(const std::vector<int> &ids,
+                               SentencePieceText *spt) const;
++
++  virtual util::Status Decode(std::basic_string_view<int> ids,
++                              SentencePieceText *spt) const;
+ #ifdef SWIG
+ #define SPP_SWIG_CHECK_AND_THROW \
+   if (!status.ok()) throw status;
+@@ -516,6 +523,10 @@ class SentencePieceProcessor {
+     DEFINE_SPP_DIRECT_FUNC_IMPL(Decode, std::string, ids);
+   }
+ 
++  virtual std::string DecodeIds(std::basic_string_view<int> ids) const {
++	  DEFINE_SPP_DIRECT_FUNC_IMPL(Decode, std::string, ids);
++  }
++
+   virtual float CalculateEntropy(absl::string_view text, float alpha) const {
+     DEFINE_SPP_DIRECT_FUNC_IMPL(CalculateEntropy, float, text, alpha);
+   }

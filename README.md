@@ -32,17 +32,28 @@ See [example](example) folder for an example CMake project.
 
 ```c++
 // - dist/tokenizer.json
-void HuggingFaceTokenizerExample() {
+void HuggingFaceTokenizerExample1() {
+  // Use Rust's interface to directly read the file.
+  auto tok = tokenizers::Tokenizer::FromBlobJSONFile("dist/tokenizer.json");
+  std::string_view prompt = "What is the capital of Canada?";
+  // call Encode to turn prompt into struct Encoding.
+  tokenizers::Encoding encoded = tok->Encode(prompt);
+  // get token ids
+  tokenizers::array_view<uint32_t> ids = encoded.ids.value();
+  // call Decode to turn ids into struct Decoding
+  tokenizers::Decoding decoded = tok->Decode(ids);
+  // get decoded string
+  std::string_view decoded_prompt = decoded.payload;
+}
+
+// or using memory file to get tokenizer
+void HuggingFaceTokenizerExample2() {
   // Read blob from file.
   auto blob = LoadBytesFromFile("dist/tokenizer.json");
   // Note: all the current factory APIs takes in-memory blob as input.
   // This gives some flexibility on how these blobs can be read.
   auto tok = Tokenizer::FromBlobJSON(blob);
-  std::string prompt = "What is the capital of Canada?";
-  // call Encode to turn prompt into token ids
-  std::vector<int> ids = tok->Encode(prompt);
-  // call Decode to turn ids into string
-  std::string decoded_prompt = tok->Decode(ids);
+  ...
 }
 
 void SentencePieceTokenizerExample() {
@@ -51,20 +62,19 @@ void SentencePieceTokenizerExample() {
   // Note: all the current factory APIs takes in-memory blob as input.
   // This gives some flexibility on how these blobs can be read.
   auto tok = Tokenizer::FromBlobSentencePiece(blob);
-  std::string prompt = "What is the capital of Canada?";
-  // call Encode to turn prompt into token ids
-  std::vector<int> ids = tok->Encode(prompt);
-  // call Decode to turn ids into string
-  std::string decoded_prompt = tok->Decode(ids);
+  ...
 }
 ```
 
 ### Extra Details
 
-Currently, the project generates three static libraries
+Currently, the project generates two static libraries on Linux
 - `libtokenizers_c.a`: the c binding to tokenizers rust library
-- `libsentencepice.a`: sentencepiece static library
 - `libtokenizers_cpp.a`: the cpp binding implementation
+
+Two static libraries on Windows
+- `tokenizers_c.lib`: the c binding to tokenizers rust library
+- `tokenizers_cpp.lib`: the cpp binding implementation
 
 If you are using an IDE, you can likely first use cmake to generate
 these libraries and add them to your development environment.

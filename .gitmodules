@@ -1,6 +1,3 @@
 [submodule "sentencepiece"]
 	path = sentencepiece
 	url = https://github.com/google/sentencepiece
-[submodule "msgpack"]
-	path = msgpack
-	url = https://github.com/msgpack/msgpack-c

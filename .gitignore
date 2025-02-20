@@ -35,4 +35,10 @@ build
 Cargo.lock
 package-lock.json
 rust/target
+rust/.cargo
 .vscode
+
+*\ copy.*
+
+vcpkg_installed
+CMakeUserPresets.json

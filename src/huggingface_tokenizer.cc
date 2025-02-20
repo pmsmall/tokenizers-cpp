@@ -1,122 +1,207 @@
-
 /*!
- *  Copyright (c) 2023 by Contributors
+ *  Copyright (c) 2025 by Contributors
  * \file huggingface_tokenizer.cc
  * \brief Huggingface tokenizer
  */
-#include <tokenizers_c.h>
+#include <tokenizers_rust.h>
 #include <tokenizers_cpp.h>
 
-#include <cassert>
+namespace tokenizers
+{
 
-namespace tokenizers {
-/*!
- * \brief A simple c++ header of tokenizer via C API.
- */
-class HFTokenizer : public Tokenizer {
- public:
-  explicit HFTokenizer(TokenizerHandle handle) : handle_(handle) {
-    #ifdef COMPILE_WASM_RUNTIME
-    setenv("TOKENIZERS_PARALLELISM", "false", true);
-    #endif
-  }
+	/*!
+	 * \brief A simple c++ header of tokenizer via C API.
+	 */
+	class RustTokenizer : public Tokenizer, public rust_impl::Tokenizer
+	{
+	public:
+		using api = rust_impl::Tokenizer;
+		inline explicit RustTokenizer(std::shared_ptr<rust_impl::SharedTokenizerHandle> handle) : rust_impl::Tokenizer(handle)
+		{
+#ifdef COMPILE_WASM_RUNTIME
+			setenv("TOKENIZERS_PARALLELISM", "false", true);
+#endif
+		}
 
-  HFTokenizer(const HFTokenizer&) = delete;
-  HFTokenizer(HFTokenizer&& other) { std::swap(other.handle_, handle_); }
+		inline ~RustTokenizer()
+		{
+		}
 
-  ~HFTokenizer() {
-    if (handle_ != nullptr) {
-      tokenizers_free(handle_);
-    }
-  }
+		static RustTokenizer from_file(std::string_view path)
+		{
+			std::shared_ptr<rust_impl::SharedTokenizerHandle> handle = std::make_shared<rust_impl::SharedTokenizerHandle>();
+			handle->operator void*& () = tokenizers_new_from_file(path.data(), path.size());
+			return RustTokenizer(handle);
+		}
 
-  // use i32 to be consistent with sentencepiece
-  std::vector<int32_t> Encode(const std::string& text, bool add_special_tokens) {
-    TokenizerEncodeResult result;
-    tokenizers_encode(handle_, text.data(), text.length(), static_cast<int>(add_special_tokens),
-                      &result);
-    std::vector<int32_t> ret(result.token_ids, result.token_ids + result.len);
-    tokenizers_free_encode_results(&result, 1);
-    return ret;
-  }
+		static RustTokenizer from_json(std::string_view json)
+		{
+			std::shared_ptr<rust_impl::SharedTokenizerHandle> handle = std::make_shared<rust_impl::SharedTokenizerHandle>();
+			handle->operator void*& () = tokenizers_new_from_str(json.data(), json.size());
+			return RustTokenizer(handle);
+		}
 
-  // use i32 to be consistent with sentencepiece
-  std::vector<int32_t> Encode(const std::string& text) final { return Encode(text, false); }
+		static RustTokenizer from_byte_level_bpe(std::string_view vocab, std::string_view merges, std::string_view added_tokens)
+		{
+			std::shared_ptr<rust_impl::SharedTokenizerHandle> handle = std::make_shared<rust_impl::SharedTokenizerHandle>();
+			handle->operator void*& () = tokenizers_new_from_byte_level_bpe(vocab.data(), vocab.size(), merges.data(), merges.size(), added_tokens.data(), added_tokens.size());
+			return RustTokenizer(handle);
+		}
 
-  std::vector<std::vector<int32_t>> EncodeBatch(const std::vector<std::string>& texts,
-                                                bool add_special_tokens) {
-    std::vector<const char*> texts_raw;
-    std::vector<size_t> seq_lens;
-    size_t num_seqs = texts.size();
-    texts_raw.reserve(num_seqs);
-    seq_lens.reserve(num_seqs);
-    for (const auto& text : texts) {
-      texts_raw.push_back(text.data());
-      seq_lens.push_back(text.length());
-    }
-    std::vector<TokenizerEncodeResult> results(num_seqs);
-    tokenizers_encode_batch(handle_, texts_raw.data(), seq_lens.data(), texts.size(),
-                            static_cast<int>(add_special_tokens), results.data());
-    std::vector<std::vector<int32_t>> ret;
-    ret.reserve(texts.size());
-    for (size_t i = 0; i < texts.size(); ++i) {
-      ret.push_back(
-          std::vector<int32_t>(results[i].token_ids, results[i].token_ids + results[i].len));
-    }
-    tokenizers_free_encode_results(results.data(), texts.size());
-    return ret;
-  }
+		struct AutoPayload
+		{
+			std::vector<void*> payloads;
 
-  std::vector<std::vector<int32_t>> EncodeBatch(const std::vector<std::string>& texts) final {
-    return EncodeBatch(texts, false);
-  }
+			inline AutoPayload() : payloads() {}
 
-  // use i32 to be consistent with sentencepiece
-  std::string Decode(const std::vector<int32_t>& ids, bool skip_special_tokens) {
-    tokenizers_decode(handle_, reinterpret_cast<const uint32_t*>(ids.data()), ids.size(),
-                      static_cast<int>(skip_special_tokens));
-    const char* data;
-    size_t len;
-    tokenizers_get_decode_str(handle_, &data, &len);
-    return std::string(data, len);
-  }
+			AutoPayload(const AutoPayload&) = delete;
 
-  std::string Decode(const std::vector<int32_t>& ids) final { return Decode(ids, false); }
+			inline AutoPayload(AutoPayload&& _Other)
+			{
+				payloads.swap(_Other.payloads);
+			}
 
-  size_t GetVocabSize() final {
-    size_t size;
-    tokenizers_get_vocab_size(handle_, &size);
-    assert(size > 0);
-    return size;
-  }
+			inline ~AutoPayload()
+			{
+				auto& pool = rust::HandlePool::instance();
+				for (size_t i = 0; i < payloads.size(); i++)
+				{
+					pool.delete_handle(payloads[i]);
+				}
+			}
+		};
 
-  std::string IdToToken(int32_t id) final {
-    const char* data;
-    size_t len;
-    tokenizers_id_to_token(handle_, static_cast<uint32_t>(id), &data, &len);
-    return std::string(data, len);
-  }
+		std::vector<std::string_view> convert_string_list(std::vector<rust::String>& arr)
+		{
+			std::vector<std::string_view> s;
+			s.reserve(arr.size());
+			for (size_t i = 0; i < arr.size(); i++)
+			{
+				s.emplace_back(arr[i]);
+			}
+			return s;
+		}
 
-  int32_t TokenToId(const std::string& token) final {
-    int32_t id;
-    tokenizers_token_to_id(handle_, token.data(), token.length(), &id);
-    return id;
-  }
+		// use i32 to be consistent with sentencepiece
+		Encoding Encode(std::string_view text, bool add_special_tokens) final
+		{
+			auto encoding = api::encode(text, add_special_tokens);
+			std::vector<std::string_view> tokens = convert_string_list(encoding.tokens);
 
- private:
-  // internal handle
-  TokenizerHandle handle_{nullptr};
-};
+			auto& pool = rust::HandlePool::instance();
+			std::shared_ptr<AutoPayload> payload = std::make_shared<AutoPayload>();
+			payload->payloads.push_back(pool.register_handle(encoding.get_handle()));
 
-std::unique_ptr<Tokenizer> Tokenizer::FromBlobJSON(const std::string& json) {
-  return std::make_unique<HFTokenizer>(tokenizers_new_from_str(json.data(), json.length()));
-}
+			Encoding result = { {{.ids = encoding.ids,
+								 .type_ids = encoding.type_ids,
+								 .tokens = tokens,
+								 .special_tokens_mask = encoding.special_tokens_mask,
+								 .attention_mask = encoding.attention_mask},
+								{.payload = payload}} };
 
-std::unique_ptr<Tokenizer> Tokenizer::FromBlobByteLevelBPE(const std::string& vocab,
-                                                           const std::string& merges,
-                                                           const std::string& added_tokens) {
-  return std::make_unique<HFTokenizer>(byte_level_bpe_tokenizers_new_from_str(
-      vocab.data(), vocab.length(), merges.data(), merges.length(), added_tokens.data(),
-      added_tokens.length()));
-}
-}  // namespace tokenizers
+			return result;
+		}
+
+		EncodingBatch EncodeBatch(const std::vector<std::string_view>& texts, bool add_special_tokens) final
+		{
+			auto encodings = api::encode(texts, add_special_tokens);
+
+			auto& pool = rust::HandlePool::instance();
+			std::shared_ptr<AutoPayload> payload = std::make_shared<AutoPayload>();
+
+			EncodingBatch result = { {}, {.payload = payload} };
+
+			result.encodings.reserve(encodings.size());
+
+			for (size_t i = 0; i < encodings.size(); i++)
+			{
+				payload->payloads.push_back(pool.register_handle(encodings[i].get_handle()));
+
+				std::vector<std::string_view> tokens = convert_string_list(encodings[i].tokens);
+
+				result.encodings.emplace_back(BaseEncode{ .ids = encodings[i].ids, .type_ids = encodings[i].type_ids, .tokens = tokens, .special_tokens_mask = encodings[i].special_tokens_mask, .attention_mask = encodings[i].attention_mask });
+			}
+
+			result.updateOnce();
+
+			return result;
+		}
+
+		inline Decoding convert(rust::String&& s)
+		{
+			auto& pool = rust::HandlePool::instance();
+			std::shared_ptr<AutoPayload> payload = std::make_shared<AutoPayload>();
+			payload->payloads.push_back(pool.register_handle(s.get_handle()));
+
+			Decoding result = { .payload = s };
+			result.handle = payload;
+
+			return result;
+		}
+
+		// use i32 to be consistent with sentencepiece
+		Decoding Decode(array_view<uint32_t> ids, bool skip_special_tokens) final
+		{
+			return convert(api::decode(ids, skip_special_tokens));
+		}
+
+		// use i32 to be consistent with sentencepiece
+		DecodingBatch DecodeBatch(const std::vector<array_view<uint32_t>>& ids_batch, bool skip_special_tokens) final
+		{
+			auto decoded = api::decode(ids_batch, skip_special_tokens);
+			DecodingBatch result;
+			result.reserve(decoded.size());
+
+			for (size_t i = 0; i < decoded.size(); i++)
+			{
+				result.emplace_back(convert(std::move(decoded[i])));
+			}
+
+			return result;
+		}
+
+		size_t GetVocabSize() final
+		{
+			return api::get_vocab_size();
+		}
+
+		Decoding IdToToken(uint32_t id) final
+		{
+			auto token = api::id_to_token(id);
+
+			auto& pool = rust::HandlePool::instance();
+			std::shared_ptr<AutoPayload> payload = std::make_shared<AutoPayload>();
+			payload->payloads.push_back(pool.register_handle(token.get_handle()));
+
+			Decoding result = { .payload = token };
+			result.handle = payload;
+
+			return result;
+		}
+
+		uint32_t TokenToId(std::string_view token) final
+		{
+			return api::token_to_id(token);
+		}
+
+	private:
+	};
+
+	std::unique_ptr<Tokenizer> Tokenizer::FromBlobJSONFile(std::string_view json_file)
+	{
+		return std::make_unique<RustTokenizer>(RustTokenizer::from_file(json_file));
+	}
+
+	std::unique_ptr<Tokenizer> Tokenizer::FromBlobJSON(std::string_view json)
+	{
+		return std::make_unique<RustTokenizer>(RustTokenizer::from_json(json));
+	}
+
+	std::unique_ptr<Tokenizer> Tokenizer::FromBlobByteLevelBPE(std::string_view vocab,
+		std::string_view merges,
+		std::string_view added_tokens)
+	{
+		return std::make_unique<RustTokenizer>(RustTokenizer::from_byte_level_bpe(
+			vocab, merges, added_tokens));
+	}
+} // namespace tokenizers
