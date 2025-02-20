@@ -28,6 +28,12 @@ You also need to turn on `c++17` support.
 
 See [example](example) folder for an example CMake project.
 
+### vcpkg
+
+- Use vcpkg for dependency management.
+- vcpkg installation can be referred from the [official documentation](https://learn.microsoft.com/zh-cn/vcpkg/get_started/get-started?pivots=shell-powershell).
+- Update the vcpkg ports files using the files in the [vcpkg_modified](vcpkg_modified) folder to correctly compile.
+
 ### Example Code
 
 ```c++
