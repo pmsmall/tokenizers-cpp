@@ -346,13 +346,15 @@ namespace tokenizers
 							get_subarray_warp(input))));
 			}
 
-			template <class _Array, typename std::enable_if_t<is_array_type_v<_Array>, int> = 0>
-			inline ::rust::String decode(const _Array& ids, bool skip_special_tokens = true)
+			template <class _Array,
+					  typename std::enable_if_t<is_array_type_of_v<_Array, uint32_t> || is_array_type_of_v<_Array, int32_t>, int> = 0>
+			inline ::rust::String decode(const _Array & ids, bool skip_special_tokens = true)
 			{
 				return ::rust::String(std::make_shared<::rust::SharedStringHandle>(tokenizers_decode(*handle, ids.data(), ids.size(), skip_special_tokens)));
 			}
 
-			template <class _Array, typename std::enable_if_t<is_array_type_v<_Array>, int> = 0>
+			template <class _Array,
+					  typename std::enable_if_t<is_array_type_of_v<_Array, uint32_t> || is_array_type_of_v<_Array, int32_t>, int> = 0>
 			inline std::vector<::rust::String> decode(std::vector<_Array> ids, bool skip_special_tokens = true)
 			{
 				auto decodes_handle = tokenizers_decode_batch(*handle, &ids, ids.size(), skip_special_tokens, get_subarray_warp(ids));

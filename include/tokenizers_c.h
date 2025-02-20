@@ -187,6 +187,15 @@ namespace tokenizers
 	template <class _Ty, class _Alloc>
 	constexpr bool is_array_type_v<std::vector<_Ty, _Alloc>> = true;
 
+	template<class _Array, class _Ty>
+	constexpr bool is_array_type_of_v = false;
+
+	template <class _Elem, class _Traits, class _Ty>
+	constexpr bool is_array_type_of_v<std::basic_string_view<_Elem, _Traits>, _Ty> = std::is_same_v<_Elem, _Ty>;
+
+	template <class _Elem, class _Alloc, class _Ty>
+	constexpr bool is_array_type_of_v<std::vector<_Elem, _Alloc>, _Ty> = std::is_same_v<_Elem, _Ty>;
+
 	template<class _String, typename std::enable_if_t<is_string_type_v<_String>, int > = 0>
 	::rust::ArrayHandle get_subarray(void* args, size_t index)
 	{

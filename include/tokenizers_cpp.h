@@ -386,42 +386,5 @@ namespace tokenizers
 		 */
 		static std::unique_ptr<Tokenizer> FromBlobRWKVWorld(std::string_view model_blob);
 	};
-
-	/*template <typename T1, typename T2>
-	inline std::vector<T1> convert(const std::vector<T2>& arr)
-	{
-		std::vector<T1> res;
-		res.reserve(arr.size());
-		for (size_t i = 0; i < arr.size(); i++)
-		{
-			res.emplace_back(static_cast<T1>(arr[i]));
-		}
-		return res;
-	}
-
-	template <typename T1, typename T2>
-	inline std::vector<T1> convert(std::vector<T2>& arr)
-	{
-		std::vector<T1> res;
-		res.reserve(arr.size());
-		for (size_t i = 0; i < arr.size(); i++)
-		{
-			res.emplace_back(static_cast<T1>(arr[i]));
-		}
-		return res;
-	}
-
-	template <typename T1, typename T2>
-	inline std::vector<T1> convert(T2* arr, size_t len)
-	{
-		std::vector<T1> res;
-		res.reserve(len);
-		for (size_t i = 0; i < len; i++)
-		{
-			res.emplace_back(static_cast<T1>(arr[i]));
-		}
-		return res;
-	}*/
-
 } // namespace tokenizers
 #endif // TOKENIZERS_CPP_H_
