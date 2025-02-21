@@ -5,10 +5,27 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(CMAKE_TOOLCHAIN_FILE)
+  if(DEFINED include_CMAKE_TOOLCHAIN_FILE)
+  else()
+    include(${CMAKE_TOOLCHAIN_FILE})
+    set(include_CMAKE_TOOLCHAIN_FILE ON)
+  endif()
+endif()
+
 find_package(sentencepiece CONFIG REQUIRED)
 
-if(NOT Torch_FOUND)
-  find_package(Torch REQUIRED)
+if(DEFINED ENABLE_TORCH)
+else()
+  set(ENABLE_TORCH ON CACHE BOOL "If enable torch")
+endif()
+
+if(ENABLE_TORCH)
+  if(NOT Torch_FOUND)
+    find_package(Torch REQUIRED)
+  endif()
+
+  add_definitions(-DENABLE_TORCH)
 endif()
 
 include(FetchContent)

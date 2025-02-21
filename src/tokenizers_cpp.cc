@@ -5,8 +5,10 @@
 #include "tokenizers_cpp.h"
 
 namespace tokenizers {
+#ifdef ENABLE_TORCH
 	torch::Device global::CUDA0(torch::DeviceType::CUDA);
 	torch::Device global::CPU(torch::DeviceType::CPU);
+#endif // ENABLE_TORCH
 }  // namespace tokenizers
 
 template<class _T>
@@ -24,9 +26,9 @@ tokenizers::EncodingBatch tokenizers::Tokenizer::EncodeBatch(const std::vector<s
 	do
 	{
 		auto first = Encode(texts[0], add_special_tokens);
-
+#ifdef ENABLE_TORCH
 		copy<tokenizers::options>(first, res);
-
+#endif // ENABLE_TORCH
 		res.encodings.emplace_back(std::move(first));
 	} while (false);
 
@@ -41,6 +43,7 @@ tokenizers::EncodingBatch tokenizers::Tokenizer::EncodeBatch(const std::vector<s
 	return res;
 }
 
+#ifdef ENABLE_TORCH
 inline std::vector<std::vector<uint32_t>> u32tensorTo2DVec(const torch::Tensor& ids) {
 	std::vector<std::vector<uint32_t>> tensor;
 	auto&& sizes = ids.sizes();
@@ -70,6 +73,7 @@ inline std::vector<std::vector<uint32_t>> tensorTo2DVec(const torch::Tensor& ids
 			return u32tensorTo2DVec(ids);
 	}
 }
+#endif // ENABLE_TORCH
 
 inline std::vector<tokenizers::array_view<uint32_t>> vecToView(const std::vector<std::vector<uint32_t>>& vec)
 {
@@ -83,6 +87,7 @@ inline std::vector<tokenizers::array_view<uint32_t>> vecToView(const std::vector
 	return res;
 }
 
+#ifdef ENABLE_TORCH
 inline std::vector<tokenizers::array_view<uint32_t>> u32tensorToView(const torch::Tensor& ids) {
 	std::vector<tokenizers::array_view<uint32_t>> tensor;
 	auto&& sizes = ids.sizes();
@@ -106,12 +111,14 @@ tokenizers::Decoding tokenizers::Tokenizer::Decode(const torch::Tensor& ids, boo
 		return Decode(u32tensorToView(ids_new)[0], skip_special_token);
 	}
 }
+#endif // ENABLE_TORCH
 
 tokenizers::Decoding tokenizers::Tokenizer::Decode(const std::vector<uint32_t>& ids, bool skip_special_token)
 {
 	return Decode({ ids.data(),ids.size() }, skip_special_token);
 }
 
+#ifdef ENABLE_TORCH
 tokenizers::DecodingBatch tokenizers::Tokenizer::DecodeBatch(const torch::Tensor& ids_batch, bool skip_special_token)
 {
 	if (ids_batch.dtype() == torch::kUInt32 && ids_batch.is_cpu())
@@ -122,6 +129,7 @@ tokenizers::DecodingBatch tokenizers::Tokenizer::DecodeBatch(const torch::Tensor
 		return DecodeBatch(u32tensorToView(ids_batch_new), skip_special_token);
 	}
 }
+#endif // ENABLE_TORCH
 
 tokenizers::DecodingBatch tokenizers::Tokenizer::DecodeBatch(
 	const std::vector<tokenizers::array_view<uint32_t>>& ids_batch, bool skip_special_token)

@@ -6,7 +6,10 @@
 #ifndef TOKENIZERS_CPP_H_
 #define TOKENIZERS_CPP_H_
 
+#ifdef ENABLE_TORCH
 #include <torch/script.h>
+#endif // ENABLE_TORCH
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -23,8 +26,11 @@ namespace tokenizers
 	class global
 	{
 	public:
+#ifdef ENABLE_TORCH
 		static torch::Device CUDA0;
 		static torch::Device CPU;
+#endif // ENABLE_TORCH
+		
 	private:
 
 	};
@@ -52,22 +58,25 @@ namespace tokenizers
 		std::shared_ptr<void> payload = NULL;
 	};
 
+#ifdef ENABLE_TORCH
 	struct options
 	{
 		torch::Dtype type = torch::kUInt32;
 		torch::Device device = global::CUDA0;
 	};
+#endif // ENABLE_TORCH
 
 	struct EncodeAdvanced : public BaseEncode, public EncodeAdvancedPayload
 	{
 	};
 
+#ifdef ENABLE_TORCH
 	struct Encoding :public EncodeAdvanced, public options
 	{
-		inline void insert(torch::jit::Kwargs &args,
-						   std::string_view key,
-						   array_view<uint32_t> &arr,
-						   c10::TensorOptions &options)
+		inline void insert(torch::jit::Kwargs& args,
+			std::string_view key,
+			array_view<uint32_t>& arr,
+			c10::TensorOptions& options)
 		{
 			auto tensor = torch::from_blob(const_cast<uint32_t*>(arr.data()),
 				{ 1, static_cast<long long>(arr.size()) },
@@ -104,9 +113,17 @@ namespace tokenizers
 
 			return args;
 		}
+#else // not define ENABLE_TORCH
+	struct Encoding :public EncodeAdvanced
+	{
+#endif // ENABLE_TORCH
 	};
 
+#ifdef ENABLE_TORCH
 	struct EncodingBatch : public BaseEncodePayload, public EncodeAdvancedPayload, public options
+#else // not define ENABLE_TORCH
+	struct EncodingBatch : public BaseEncodePayload, public EncodeAdvancedPayload
+#endif // ENABLE_TORCH
 	{
 		std::vector<EncodeAdvanced> encodings;
 
@@ -178,10 +195,11 @@ namespace tokenizers
 				update();
 		}
 
-		inline void insert(torch::jit::Kwargs &args,
-						   std::string_view key,
-						   std::vector<uint32_t> &arr,
-						   c10::TensorOptions &options)
+#ifdef ENABLE_TORCH
+		inline void insert(torch::jit::Kwargs& args,
+			std::string_view key,
+			std::vector<uint32_t>& arr,
+			c10::TensorOptions& options)
 		{
 
 			auto tensor = torch::from_blob(const_cast<uint32_t*>(arr.data()),
@@ -224,6 +242,7 @@ namespace tokenizers
 
 			return args;
 		}
+#endif // ENABLE_TORCH
 	};
 
 	struct DecodePayload
@@ -275,12 +294,14 @@ namespace tokenizers
 		virtual EncodingBatch EncodeBatch(const std::vector<std::string_view>& texts,
 			bool add_special_tokens = true);
 
+#ifdef ENABLE_TORCH
 		/*!
 		 * \brief Decode token ids into text.
 		 * \param text The token ids.
 		 * \returns The decoded text.
 		 */
 		virtual Decoding Decode(const torch::Tensor& ids, bool skip_special_token = true);
+#endif // ENABLE_TORCH
 
 		/*!
 		 * \brief Decode token ids into text.
@@ -296,6 +317,7 @@ namespace tokenizers
 		 */
 		virtual Decoding Decode(array_view<uint32_t> ids, bool skip_special_token = true) = 0;
 
+#ifdef ENABLE_TORCH
 		/*!
 		 * \brief Decode a batch of token ids into texts.
 		 * \param text The token ids.
@@ -303,6 +325,7 @@ namespace tokenizers
 		 */
 		virtual DecodingBatch DecodeBatch(
 			const torch::Tensor& ids_batch, bool skip_special_token = true);
+#endif // ENABLE_TORCH
 
 		/*!
 		 * \brief Decode a batch of token ids into texts.

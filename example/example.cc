@@ -7,6 +7,7 @@
 #include <string>
 
 using tokenizers::Tokenizer;
+using tokenizers::array_view;
 
 std::string LoadBytesFromFile(const std::string& path) {
   std::ifstream fs(path, std::ios::in | std::ios::binary);
@@ -23,7 +24,7 @@ std::string LoadBytesFromFile(const std::string& path) {
   return data;
 }
 
-void PrintEncodeResult(const std::vector<int>& ids) {
+void PrintEncodeResult(const array_view<uint32_t>& ids) {
   std::cout << "tokens=[";
   for (size_t i = 0; i < ids.size(); ++i) {
     if (i != 0) std::cout << ", ";
@@ -36,8 +37,10 @@ void TestTokenizer(std::unique_ptr<Tokenizer> tok, bool print_vocab = false,
                    bool check_id_back = true) {
   // Check #1. Encode and Decode
   std::string prompt = "What is the  capital of Canada?";
-  std::vector<int> ids = tok->Encode(prompt);
-  std::string decoded_prompt = tok->Decode(ids);
+  auto encoded = tok->Encode(prompt);
+  auto& ids = encoded.ids.value();
+  auto decoded = tok->Decode(ids);
+  std::string_view decoded_prompt = decoded;
   PrintEncodeResult(ids);
   std::cout << "decode=\"" << decoded_prompt << "\"" << std::endl;
   assert(decoded_prompt == prompt);
@@ -47,7 +50,7 @@ void TestTokenizer(std::unique_ptr<Tokenizer> tok, bool print_vocab = false,
   for (auto id : ids_to_test) {
     auto token = tok->IdToToken(id);
     auto id_new = tok->TokenToId(token);
-    std::cout << "id=" << id << ", token=\"" << token << "\", id_new=" << id_new << std::endl;
+    std::cout << "id=" << id << ", token=\"" << token.payload << "\", id_new=" << id_new << std::endl;
     if (check_id_back) {
       assert(id == id_new);
     }
@@ -88,11 +91,8 @@ void HuggingFaceTokenizerExample() {
 
   auto start = std::chrono::high_resolution_clock::now();
 
-  // Read blob from file.
-  auto blob = LoadBytesFromFile("dist/tokenizer.json");
-  // Note: all the current factory APIs takes in-memory blob as input.
-  // This gives some flexibility on how these blobs can be read.
-  auto tok = Tokenizer::FromBlobJSON(blob);
+  // Use Rust's interface to directly read the file.
+  auto tok = Tokenizer::FromBlobJSONFile("dist/tokenizer.json");
 
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
