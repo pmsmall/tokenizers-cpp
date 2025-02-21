@@ -22,10 +22,17 @@ endif()
 
 if(ENABLE_TORCH)
   if(NOT Torch_FOUND)
-    find_package(Torch REQUIRED)
+    find_package(Torch)
+
+    if(NOT Torch_FOUND)
+      set(ENABLE_TORCH OFF)
+      message(WARNING "Cannot found torch, turn ENABLE_TORCH off!")
+    endif()
   endif()
 
-  add_definitions(-DENABLE_TORCH)
+  if(ENABLE_TORCH)
+    add_definitions(-DENABLE_TORCH)
+  endif()
 endif()
 
 include(FetchContent)
